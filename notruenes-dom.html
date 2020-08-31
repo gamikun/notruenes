@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>No Truenes</title>
+  <style>
+    #game {
+      border: solid 1px black;
+      display: flex;
+      flex-wrap: wrap;
+    }
+    .square {
+      flex-grow: 0;
+      box-sizing: border-box;
+    }
+    .number { font-size: 25px; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <script src="notruenes-dom.js">
+  </script>
+  <script>
+    noTruenes('#game');
+  </script>
+</body>
+</html>

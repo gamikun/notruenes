@@ -1,5 +1,5 @@
 (function() {
-  var minesCount = 20;
+  var minesCount = 25;
   var boardWidth = 12;
   var boardHeight = 12;
   var squareSize = 32;
@@ -30,8 +30,8 @@
 
   function createCanvas() {
     var e = document.createElement('canvas');
-    e.width = 640;
-    e.height = 640;
+    e.width = boardWidth * squareSize;
+    e.height = boardHeight * squareSize;
     document.body.appendChild(e);
     return e;
   }
@@ -87,6 +87,47 @@
     });
   }
 
+  function drawMine(x, y) {
+    context.fillStyle = 'black';
+    context.fillRect(x, y,
+      squareSize, squareSize
+    );
+
+    context.fillStyle = 'red';
+    context.beginPath();
+    context.arc(x + squareSize / 2, y + squareSize / 2,
+      squareSize * 0.25,
+      0, Math.PI * 2, 0
+    );
+    context.fill();
+  }
+
+  function drawFlag(x, y) {
+    context.lineWidth = 2;
+    context.fillStyle = 'green';
+    context.beginPath();
+    context.arc(x + squareSize / 2, y + squareSize / 2,
+      squareSize * 0.25,
+      0, Math.PI * 2, 0
+    );
+    context.fill();
+  }
+
+  function drawGrid() {
+    context.strokeStyle = '#444';
+    context.lineWidth = 2;
+    for (let idx = 1; idx < boardWidth; idx++) {
+      context.moveTo(idx * squareSize, 0);
+      context.lineTo(idx * squareSize, squareSize * boardHeight);
+      context.stroke();
+    }
+    for (let idx = 1; idx < boardHeight; idx++) {
+      context.moveTo(0, idx * squareSize);
+      context.lineTo(squareSize * boardHeight, idx * squareSize);
+      context.stroke();
+    }
+  }
+
   function drawBoard() {
     context.clearRect(0, 0, 640, 640);
 
@@ -105,37 +146,14 @@
           squareSize,
           squareSize
         );
-        context.strokeRect(
-          x * squareSize,
-          y * squareSize,
-          squareSize,
-          squareSize
-        );
 
         if (mask[index] === 2) {
-          context.fillStyle = 'green';
-          context.beginPath();
-          context.arc(ax + squareSize / 2, ay + squareSize / 2,
-            squareSize * 0.25,
-            0, Math.PI * 2, 0
-          );
-          context.fill();
+          drawFlag(ax, ay);
         }
       }
 
       else if (value === -1) {
-        context.fillStyle = 'black';
-        context.fillRect(ax, ay,
-          squareSize, squareSize
-        );
-
-        context.fillStyle = 'red';
-        context.beginPath();
-        context.arc(ax + squareSize / 2, ay + squareSize / 2,
-          squareSize * 0.25,
-          0, Math.PI * 2, 0
-        );
-        context.fill();
+        drawMine(ax, ay);
       } else {
         const text = value.toString();
         const charSize = context.measureText(text);
@@ -147,6 +165,8 @@
         );
       }
     });
+
+    drawGrid();
   }
 
   function onLoad() {
@@ -176,7 +196,7 @@
 
     while (queue.length > 0) {
       const [cx, cy] = queue.shift();
-      iterateAround(cx, cy, true, (x, y, index) => {
+      iterateAround(cx, cy, false, (x, y, index) => {
         if (mask[index] === 1 && board[index] >= 0) {
           mask[index] = 0;
           if (board[index] === 0) {
