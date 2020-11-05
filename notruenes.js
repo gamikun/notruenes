@@ -4,10 +4,10 @@
   var boardHeight = 12;
   var squareSize = 32;
   var fontSize = (squareSize * 0.5);
+  var clickMode = 'normal';
   var canvas;
   var context;
   var board;
-  var mask;
   var aroundOffsets = [
     [-1, -1], [0, -1], [1, -1],
     [-1,  0],          [1,  0],
@@ -28,11 +28,18 @@
     'black'
   ];
 
+  var Square = function() {
+    this.isMine = false;
+    this.counter = 0;
+    this.isCovered = true;
+    this.isFlagged = false;
+  };
+
   function createCanvas() {
     var e = document.createElement('canvas');
     e.width = boardWidth * squareSize;
     e.height = boardHeight * squareSize;
-    document.body.appendChild(e);
+    document.getElementById('board').appendChild(e);
     return e;
   }
 
@@ -46,22 +53,20 @@
   function prepareBoard() {
     const length = boardWidth * boardHeight;
 
-    board = new Int8Array(length);
-    board.fill(0);
-
-    mask = new Int8Array(length);
-    mask.fill(1);
+    board = [];
+    while (board.length < length) {
+      board.push(new Square());
+    }
 
     for (let idx = 0; idx < minesCount; idx++) {
-      var [x, y] = randomPosition();
-      var index = x + (y * boardWidth);
+      let [x, y] = randomPosition();
+      let index = x + (y * boardWidth);
 
-      if (board[index] > -1) {
-        board[index] = -1;
-
-        iterateAround(x, y, false, (x, y, index) => {
-          if (board[index] >= 0) {
-            board[index] += 1;
+      if (!board[index].isMine) {
+        board[index].isMine = true;
+        iterateAround(x, y, (e) => {
+          if (!e.isMine) {
+            e.counter += 1;
           }
         });
       } else {
@@ -70,10 +75,8 @@
     }
   }
 
-  function iterateAround(x, y, cross, fn) {
-    const offsets = cross ? crossOffsets : aroundOffsets;
-
-    offsets.forEach(function(o) {
+  function iterateAround(x, y, fn) {
+    aroundOffsets.forEach(function(o) {
       const [ox, oy] = o;
       const ax = x + ox;
       const ay = y + oy;
@@ -82,7 +85,7 @@
       if (ax < boardWidth && ax >= 0
         && ay < boardHeight && ay >= 0
       ) {
-        fn(ax, ay, index);
+        fn(board[index], ax, ay);
       }
     });
   }
@@ -131,13 +134,13 @@
   function drawBoard() {
     context.clearRect(0, 0, 640, 640);
 
-    board.forEach(function(value, index) {
+    board.forEach(function(e, index) {
       const x = index % boardWidth;
       const y = Math.floor(index / boardWidth);
       const ax = x * squareSize;
       const ay = y * squareSize;
 
-      if (mask[index]) {
+      if (e.isCovered) {
         context.strokeStyle = '#444';
         context.fillStyle = 'grey';
         context.fillRect(
@@ -147,18 +150,16 @@
           squareSize
         );
 
-        if (mask[index] === 2) {
+        if (e.isFlgagged) {
           drawFlag(ax, ay);
         }
-      }
-
-      else if (value === -1) {
+      } else if (e.isMine) {
         drawMine(ax, ay);
       } else {
-        const text = value.toString();
+        const text = e.counter.toString();
         const charSize = context.measureText(text);
 
-        context.fillStyle = numberColors[value];
+        context.fillStyle = numberColors[e.counter];
         context.fillText(text,
           ax + (squareSize / 2 - charSize.width / 2),
           ay + (squareSize / 2 - fontSize / 2)
@@ -175,6 +176,12 @@
     context.textBaseline = 'top';
     context.font = `bold ${fontSize}px Arial`;
 
+    document.querySelectorAll('input[type=radio]').forEach((e) => {
+      e.addEventListener('change', (evt) => {
+        clickMode = evt.target.value;
+      });
+    });
+
     canvas.addEventListener('mousedown', onMouseDown);
     
     prepareBoard();
@@ -182,9 +189,9 @@
   }
 
   function revealAround(x, y) {
-    iterateAround(x, y, false, (x, y, index) => {
-      if (mask[index] === 1) {
-        mask[index] = 0;
+    iterateAround(x, y, (e) => {
+      if (e.isCovered) {
+        e.isCovered = false;
       }
     });
 
@@ -196,10 +203,10 @@
 
     while (queue.length > 0) {
       const [cx, cy] = queue.shift();
-      iterateAround(cx, cy, false, (x, y, index) => {
-        if (mask[index] === 1 && board[index] >= 0) {
-          mask[index] = 0;
-          if (board[index] === 0) {
+      iterateAround(cx, cy, (e, x, y) => {
+        if (e.isCovered && !e.isFlagged) {
+          e.isCovered = false;
+          if (e.counter === 0) {
             queue.push([x, y]);
           }
         }
@@ -217,21 +224,22 @@
       && y >= 0 && y < boardHeight
     ) {
       const index = x + (y * boardWidth);
-      if (e.shiftKey === true) {
-        if (mask[index] === 0 && board[index] > 0) {
+      const e = board[index];
+
+      if (clickMode === 'discover') {
+        if (!board.isCovered && board.counter > 0) {
           revealAround(x, y);
         }
-      } else if (e.altKey === true) {
-        if (mask[index] === 1) {
-          mask[index] = 2;
-        } else if (mask[index] === 2) {
-          mask[index] = 1;
-        }
-      } else {
-        if (board[index] === 0) {
-          revealEmpty(x, y);
+      } else if (clickMode === 'flag') {
+        e.isFlagged = !e.isFlagged;
+      } else  if (clickMode === 'normal') {
+        if (e.counter === 0) {
+          e.isCovered = false;
+          if (!e.isMine) {
+            revealEmpty(x, y);
+          }
         } else {
-          mask[index] = 0;
+          e.isCovered = false;
         }
       }
     }
