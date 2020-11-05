@@ -150,7 +150,7 @@
           squareSize
         );
 
-        if (e.isFlgagged) {
+        if (e.isFlagged) {
           drawFlag(ax, ay);
         }
       } else if (e.isMine) {
@@ -176,7 +176,10 @@
     context.textBaseline = 'top';
     context.font = `bold ${fontSize}px Arial`;
 
-    document.querySelectorAll('input[type=radio]').forEach((e) => {
+    document.querySelectorAll('input[type=radio]').forEach((e, idx) => {
+      if (idx === 0) {
+        e.checked = true;
+      }
       e.addEventListener('change', (evt) => {
         clickMode = evt.target.value;
       });
@@ -190,7 +193,7 @@
 
   function revealAround(x, y) {
     iterateAround(x, y, (e) => {
-      if (e.isCovered) {
+      if (!e.isFlagged && e.isCovered) {
         e.isCovered = false;
       }
     });
@@ -227,20 +230,22 @@
       const e = board[index];
 
       if (clickMode === 'discover') {
-        if (!board.isCovered && board.counter > 0) {
+        if (!e.isCovered && e.counter > 0) {
           revealAround(x, y);
         }
       } else if (clickMode === 'flag') {
         e.isFlagged = !e.isFlagged;
       } else  if (clickMode === 'normal') {
-        if (e.counter === 0) {
-          e.isCovered = false;
-          if (!e.isMine) {
-            revealEmpty(x, y);
+        if (e.isCovered) {
+          if (e.counter === 0) {
+            e.isCovered = false;
+            if (!e.isMine) {
+              revealEmpty(x, y);
+            }
+          } else {
+            e.isCovered = false;
           }
-        } else {
-          e.isCovered = false;
-        }
+        } 
       }
     }
     
