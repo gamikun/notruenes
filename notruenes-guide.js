@@ -1,22 +1,23 @@
 (function() {
-  const minesCount = 25;
-  const boardWidth = 12;
-  const boardHeight = 12;
-  const squareSize = 32; // pixels
-  const fontSize = (squareSize * 0.5);
-  var lost = false;
+  var minesCount = 25;
+  var boardWidth = 12;
+  var boardHeight = 12;
+  var squareSize = 32;
+  var fontSize = (squareSize * 0.5);
   var clickMode = 'normal';
-  var canvas; // HTML Element
-  var context; // 2D context
+  var canvas;
+  var context;
   var board;
-
-  const aroundOffsets = [
+  var aroundOffsets = [
     [-1, -1], [0, -1], [1, -1],
     [-1,  0],          [1,  0],
-    [-1,  1], [0,  1], [1,  1]
+    [-1,  1], [0,  1], [1,  1],
   ];
-  const numberColors = [
-    'transparent', // 0
+  var crossOffsets = [
+    [0, -1], [-1,  0], [1,  0], [0,  1]
+  ];
+  var numberColors = [
+    'transparent',
     'green',
     'blue',
     'magenta',
@@ -27,7 +28,7 @@
     'black'
   ];
 
-  const Square = function() {
+  var Square = function() {
     this.isMine = false;
     this.counter = 0;
     this.isCovered = true;
@@ -35,7 +36,7 @@
   };
 
   function createCanvas() {
-    const e = document.createElement('canvas');
+    var e = document.createElement('canvas');
     e.width = boardWidth * squareSize;
     e.height = boardHeight * squareSize;
     document.getElementById('board').appendChild(e);
@@ -45,15 +46,14 @@
   function randomPosition() {
     return [
       parseInt(Math.floor(Math.random() * boardWidth)),
-      parseInt(Math.floor(Math.random() * boardHeight))
+      parseInt(Math.floor(Math.random() * boardHeight)),
     ];
   }
 
   function prepareBoard() {
     const length = boardWidth * boardHeight;
-    
-    board = [];
 
+    board = [];
     while (board.length < length) {
       board.push(new Square());
     }
@@ -69,6 +69,8 @@
             e.counter += 1;
           }
         });
+      } else {
+        idx--;
       }
     }
   }
@@ -90,32 +92,43 @@
 
   function drawMine(x, y) {
     context.fillStyle = 'black';
-    context.fillRect(x, y, squareSize, squareSize);
+    context.fillRect(x, y,
+      squareSize, squareSize
+    );
 
     context.fillStyle = 'red';
     context.beginPath();
-    context.arc(
-      x + squareSize / 2,
-      y + squareSize / 2,
+    context.arc(x + squareSize / 2, y + squareSize / 2,
       squareSize * 0.25,
-      0,
-      Math.PI * 2,
-      0
+      0, Math.PI * 2, 0
     );
     context.fill();
   }
 
   function drawFlag(x, y) {
-    context.fillStyle = 'white';
+    context.lineWidth = 2;
+    context.fillStyle = 'green';
     context.beginPath();
-    context.arc(
-      x + squareSize / 2,
-      y + squareSize / 2,
+    context.arc(x + squareSize / 2, y + squareSize / 2,
       squareSize * 0.25,
-      0, Math.PI * 2,
-      0
+      0, Math.PI * 2, 0
     );
     context.fill();
+  }
+
+  function drawGrid() {
+    context.strokeStyle = '#444';
+    context.lineWidth = 2;
+    for (let idx = 1; idx < boardWidth; idx++) {
+      context.moveTo(idx * squareSize, 0);
+      context.lineTo(idx * squareSize, squareSize * boardHeight);
+      context.stroke();
+    }
+    for (let idx = 1; idx < boardHeight; idx++) {
+      context.moveTo(0, idx * squareSize);
+      context.lineTo(squareSize * boardHeight, idx * squareSize);
+      context.stroke();
+    }
   }
 
   function drawBoard() {
@@ -136,7 +149,7 @@
           squareSize,
           squareSize
         );
-          
+
         if (e.isFlagged) {
           drawFlag(ax, ay);
         }
@@ -153,46 +166,8 @@
         );
       }
     });
-  }
 
-  function onMouseDown(e) {
-    const ax = e.clientX - canvas.offsetLeft;
-    const ay = e.clientY - canvas.offsetTop;
-    const x = parseInt(Math.floor(ax / squareSize));
-    const y = parseInt(Math.floor(ay / squareSize));
-
-    if (lost) {
-      return;
-    }
-
-    if (x >= 0 && x < boardWidth
-      && y >= 0 && y < boardHeight
-    ) {
-      const index = x + (y * boardWidth);
-      const sq = board[index];
-
-      if (clickMode === 'discover') {
-        if (!sq.isCovered && sq.counter > 0) {
-          revealAround(x, y);
-        }
-      } else if (clickMode === 'flag') {
-        sq.isFlagged = true;
-      } else if (clickMode === 'normal') {
-        if (sq.isCovered) {
-          if (sq.isMine) {
-            sq.isCovered = false;
-            lost = true;
-          } else if (sq.counter === 0) {
-            sq.isCovered = false;
-            revealEmpty(x, y);
-          } else {
-            sq.isCovered = false;
-          }
-        }
-      }
-    }
-
-    drawBoard();
+    drawGrid();
   }
 
   function onLoad() {
@@ -207,12 +182,11 @@
       }
       e.addEventListener('change', (evt) => {
         clickMode = evt.target.value;
-      })
+      });
     });
 
     canvas.addEventListener('mousedown', onMouseDown);
-    document.getElementById('restart').addEventListener('click', restart);
-
+    
     prepareBoard();
     drawBoard();
   }
@@ -221,19 +195,10 @@
     iterateAround(x, y, (e) => {
       if (!e.isFlagged && e.isCovered) {
         e.isCovered = false;
-        if (e.isMine) {
-          lost = true;
-        }
       }
-    })
+    });
 
     drawBoard();
-  }
-
-  function restart() {
-    prepareBoard();
-    drawBoard();
-    lost = false;
   }
 
   function revealEmpty(x, y) {
@@ -241,7 +206,6 @@
 
     while (queue.length > 0) {
       const [cx, cy] = queue.shift();
-      
       iterateAround(cx, cy, (e, x, y) => {
         if (e.isCovered && !e.isFlagged) {
           e.isCovered = false;
@@ -251,6 +215,41 @@
         }
       });
     }
+  }
+
+  function onMouseDown(e) {
+    const ax = e.clientX - canvas.offsetLeft;
+    const ay = e.clientY - canvas.offsetTop;
+    const x = parseInt(Math.floor(ax / squareSize));
+    const y = parseInt(Math.floor(ay / squareSize));
+
+    if (x >= 0 && x < boardWidth
+      && y >= 0 && y < boardHeight
+    ) {
+      const index = x + (y * boardWidth);
+      const e = board[index];
+
+      if (clickMode === 'discover') {
+        if (!e.isCovered && e.counter > 0) {
+          revealAround(x, y);
+        }
+      } else if (clickMode === 'flag') {
+        e.isFlagged = !e.isFlagged;
+      } else  if (clickMode === 'normal') {
+        if (e.isCovered) {
+          if (e.counter === 0) {
+            e.isCovered = false;
+            if (!e.isMine) {
+              revealEmpty(x, y);
+            }
+          } else {
+            e.isCovered = false;
+          }
+        } 
+      }
+    }
+    
+    drawBoard();
   }
 
   window.addEventListener('load', onLoad);
